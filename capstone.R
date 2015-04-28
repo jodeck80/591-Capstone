@@ -71,6 +71,10 @@ filterTweetsNBA<-function(a)
 
 
 continuousRun<-function(a){
+
+#stream tweets only in US locations
+filterStream("tweetsUS.json", locations = c(-125, 25, -66, 50), timeout = 20, oauth = my_oauth)
+  
 #parse tweets from .json file
 tweets.df <- parseTweets("tweetsUS.json", verbose = FALSE)
 
