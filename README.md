@@ -1,5 +1,5 @@
 # 591-Capstone
-To Do:
+To Do (if just 1 person project):
 1. Add NFL, NHL
 2. Add hash map for each league
 3. Make grep use constant array for filter instead of hardcoded values
