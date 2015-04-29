@@ -18,10 +18,11 @@ load("my_oauth.Rdata")
 #namesGrizzlies <- c("memphis", "grizzlies", "randolph", "gasol")
 #namesSpurs <- c("san antonio", "spurs", "duncan", "ginobili")
 
+#run these prior to starting loop
 #handshake for twitter credentials
 my_oauth$handshake(cainfo = system.file("CurlSSL", "cacert.pem", package = "RCurl"))
 
-#define, used in updateTweets
+#define globally, used in many functions
 tweets.running <- 0
 
 #function to remove tweets having both the words love and hate
@@ -75,6 +76,7 @@ filterTweetsNBA<-function(a)
 
 updateTweets<-function(a){
 
+#TODO, maybe update to minute
 #stream tweets only in US locations
 filterStream("tweetsUS.json", locations = c(-125, 25, -66, 50), timeout = 20, oauth = my_oauth)
   
@@ -84,6 +86,7 @@ tweets.df <- parseTweets("tweetsUS.json", verbose = FALSE)
 #delete file once it is stored, to be written to again
 file.remove("tweetsUS.json")
 
+#copy parsed tweets, init league to 0
 tweets.filter <- tweets.df
 tweets.filter$league = 0
 
@@ -94,13 +97,7 @@ tweets.filter<-ddply(tweets.df,.(text),filterTweets)
 tweets.filter<-ddply(tweets.filter,.(text),filterTweetsNBA)
 
 #Only look at rows where at least one league was selected
-tweets.filter <- subset(tweets.filter, league!=0 )
-
-if(!exists("tweets.running"))
-{
-  #init
-  tweets.running <- tweets.filter
-}
+tweets.filter <- subset(tweets.filter, tweets.filter$league!=0 )
 
 #append new filtered tweets to old
 tweets.running <- rbind(tweets.running, tweets.filter)
@@ -108,10 +105,9 @@ tweets.running <- rbind(tweets.running, tweets.filter)
 return (tweets.running)
 }
 
+#define data frame used for mapping
 defineMapPoints <- function(a)
 {
-#US map
-map.data <- map_data("state")
 
 #define points with only latitude, longitude, and league class
 points1 <- data.frame(x = as.numeric(tweets.running$lon), y = as.numeric(tweets.running$lat), 
@@ -123,36 +119,49 @@ points1 <- points1[points1$y > 25, ]
 return (points1)
 }
 
-#determine good length, n
-for (i in 1:3)
-{
-
-  tweets.running <- updateTweets(tweets.running)
-  points1 <- defineMapPoints(tweets.running)
+mapData <- function(){
   
-  #map, remaining should be added to routine once ggplot and print is resolved
   #US map
   map.data <- map_data("state")
   
-  #define points with only latitude, longitude, and league class
-  points1 <- data.frame(x = as.numeric(tweets.running$lon), y = as.numeric(tweets.running$lat), 
-                        league = as.numeric(tweets.running$league))
+  p <- ggplot(map.data) + 
+    geom_map(aes(map_id = region), map = map.data, fill = "white", color = "grey20", size = 0.25) + 
+    expand_limits(x = map.data$long, y = map.data$lat) + 
+    theme(axis.line = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), 
+          axis.title = element_blank(), panel.background = element_blank(), panel.border = element_blank(), 
+          panel.grid.major = element_blank(), plot.background = element_blank(), 
+          plot.margin = unit(0 * c(-1.5, -1.5, -1.5, -1.5), "lines")) + 
+    geom_point(data = points1, aes(x = x, y = y, color = factor(points1$league)), size = 2 , alpha = 1/2) +
+    coord_cartesian(xlim = c(-60, -130))  #trim off unused edges on x axis, not lways needed
   
-  #ensure only points above mexico are considered
-  points1 <- points1[points1$y > 25, ]
+  return (p)
   
-  ggplot(map.data) + geom_map(aes(map_id = region), map = map.data, fill = "white", color = "grey20", size = 0.25) + 
-          expand_limits(x = map.data$long, y = map.data$lat) + 
-          theme(axis.line = element_blank(), axis.text = element_blank(), axis.ticks = element_blank(), 
-                axis.title = element_blank(), panel.background = element_blank(), panel.border = element_blank(), 
-                panel.grid.major = element_blank(), plot.background = element_blank(), 
-                plot.margin = unit(0 * c(-1.5, -1.5, -1.5, -1.5), "lines")) + 
-          geom_point(data = points1, aes(x = x, y = y, color = factor(points1$league)), size = 2 , alpha = 1/2) +
-          coord_cartesian(xlim = c(-60, -130))  #trim off unused edges on x axis, not lways needed
-  
+}
+
+#print total counts of each league
+printTotals <- function()
+{
   #print totals
   print(paste0("Total MLB Tweets: ", sum(tweets.running$league==1, na.rm=TRUE)))
   print(paste0("Total NBA Tweets: ", sum(tweets.running$league==2, na.rm=TRUE)))
+}
+
+#determine good length
+for (i in 1:3)
+{
+
+  #Gather new tweets and update filter
+  tweets.running <- updateTweets(tweets.running)
+  
+  #Prepare tweets to be mapped
+  points1 <- defineMapPoints(tweets.running)
+  
+  #Define map and print it
+  map <- mapData()
+  print(map)
+  
+  #Print total counts
+  printTotals()
 }
 
 
