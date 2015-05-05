@@ -42,7 +42,78 @@ NHLTerms <- c("NHL","rangers", "canadiens", "lightning", "capitals", "islanders"
               "canucks", "wild", "jets", "flames", "kings",
               "stars", "avalanche", "sharks", "oilers", "coyotes")
 
+countMin<-function(tweets.running)
+{
+  oneData<-as.data.frame(tweets.running$text)
+  oneData[,1]<-as.data.frame(str_replace_all(oneData[,1],"[^[:graph:]]", " "))
+  oneData[,1] <- sapply(oneData[,1] ,function(row){ 
+    iconv(row, "ISO_8859-2", "ASCII", sub="")
+    iconv(row, "latin1", "ASCII", sub="")
+    iconv(row, "LATIN2", "ASCII", sub="")
+  })
 
+  s <- Corpus(VectorSource(oneData[,1]),readerControl=list(language="en"))
+  s <- tm_map(s, tolower)
+  s <- tm_map(s, removeWords, c(stopwords("english"),"rt","http","retweet"))
+  s <- tm_map(s, removePunctuation)
+  s <- tm_map(s, removeNumbers)
+  s <- tm_map(s, PlainTextDocument)
+  s <- tm_map(s, stripWhitespace)
+  tweets<-data.frame(text=sapply(s, '[[', "content"), stringsAsFactors=FALSE)
+
+  #function to pre-process tweet text
+
+  topology = Topology(tweets)
+  # Add the bolts:
+  topology <- AddBolt(
+    topology, Bolt(SplitSentence, listen = 0)
+  )
+  topology <- AddBolt(
+    topology, Bolt(CountWord, listen = 1)
+  )
+
+  # R function that receives a tuple
+  # (a sentence in this case)
+  # and splits it into words:
+  SplitSentence <- function(tuple,...)
+  {
+    if((tuple$text!="")||(tuple$text!=" "))
+    {
+      # Split the sentence into words
+      words <- unlist(strsplit(as.character(tuple$text), " "))
+      # For each word emit a tuple
+      for (word in words)
+      {
+        if (word!="")
+        {
+          Emit(Tuple(data.frame(word = word)),...)
+        }  
+      } 
+    }
+  }
+
+  # R word counting function:
+  CountWord <- function(tuple,...){
+    # Get the hashmap "word count"
+    words <- GetHash("wordcount")
+    if (tuple$word %in% words$word) {
+      # Increment the word count:
+      words[words$word == tuple$word,]$count <-words[words$word == tuple$word,]$count + 1
+    } else { 
+      # If the word does not exist
+      # Add the word with count 1
+      words <- rbind(words, data.frame(word = tuple$word, count = 1))
+    }
+    # Store the hashmap
+    SetHash("wordcount", words)
+  }
+
+  # Run the stream:
+  result <- RStorm(topology)
+  # Obtain results stored in "wordcount"
+  counts <- GetHash("wordcount", result)
+  return counts
+}
 #function to remove tweets having both the words love and hate
 filterTweetsMLB<-function(a)
 {
@@ -329,6 +400,7 @@ points <- data.frame(0)
 
 #Gather new tweets and update filter for first time
 tweets.running <- updateTweets(tweets.running, TRUE)
+counts<-countMin(tweets.running)
 
 #determine good length
 for (i in 1:ITERATIONS)
@@ -336,6 +408,7 @@ for (i in 1:ITERATIONS)
 
   #Gather new tweets and update filter
   tweets.running <- updateTweets(tweets.running, FALSE)
+  counts<-countMin(tweets.running)
   
   #define points with only latitude, longitude, and league class
   #update global so it can be used in ggplot
