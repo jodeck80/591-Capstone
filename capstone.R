@@ -4,6 +4,8 @@ library(ggplot2)
 library(grid)
 library(maps)
 library(RStorm)
+library(tm)
+library(stringr)
 load("my_oauth.Rdata")
 
 # Color blind friendly colors:
@@ -42,8 +44,7 @@ NHLTerms <- c("NHL","rangers", "canadiens", "lightning", "capitals", "islanders"
               "canucks", "wild", "jets", "flames", "kings",
               "stars", "avalanche", "sharks", "oilers", "coyotes")
 
-countMin<-function(tweets.running)
-{
+countMin<-function(tweets.running){
   oneData<-as.data.frame(tweets.running$text)
   oneData[,1]<-as.data.frame(str_replace_all(oneData[,1],"[^[:graph:]]", " "))
   oneData[,1] <- sapply(oneData[,1] ,function(row){ 
@@ -112,7 +113,7 @@ countMin<-function(tweets.running)
   result <- RStorm(topology)
   # Obtain results stored in "wordcount"
   counts <- GetHash("wordcount", result)
-  return counts
+  return (counts)
 }
 #function to remove tweets having both the words love and hate
 filterTweetsMLB<-function(a)
