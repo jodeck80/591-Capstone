@@ -44,6 +44,39 @@ NHLTerms <- c("NHL","rangers", "canadiens", "lightning", "capitals", "islanders"
               "canucks", "wild", "jets", "flames", "kings",
               "stars", "avalanche", "sharks", "oilers", "coyotes")
 
+# R word counting function:
+  CountWord <- function(tuple,...){
+    # Get the hashmap "word count"
+    words <- GetHash("wordcount")
+    if (tuple$word %in% words$word) {
+      # Increment the word count:
+      words[words$word == tuple$word,]$count <-words[words$word == tuple$word,]$count + 1
+    } else { 
+      # If the word does not exist
+      # Add the word with count 1
+      words <- rbind(words, data.frame(word = tuple$word, count = 1))
+    }
+    # Store the hashmap
+    SetHash("wordcount", words)
+  }
+ # and splits it into words:
+  SplitSentence <- function(tuple,...)
+  {
+    if((tuple$text!="")||(tuple$text!=" "))
+    {
+      # Split the sentence into words
+      words <- unlist(strsplit(as.character(tuple$text), " "))
+      # For each word emit a tuple
+      for (word in words)
+      {
+        if (word!="")
+        {
+          Emit(Tuple(data.frame(word = word)),...)
+        }  
+      } 
+    }
+  }
+  
 countMin<-function(tweets.running){
   oneData<-as.data.frame(tweets.running$text)
   oneData[,1]<-as.data.frame(str_replace_all(oneData[,1],"[^[:graph:]]", " "))
@@ -75,39 +108,6 @@ countMin<-function(tweets.running){
 
   # R function that receives a tuple
   # (a sentence in this case)
-  # and splits it into words:
-  SplitSentence <- function(tuple,...)
-  {
-    if((tuple$text!="")||(tuple$text!=" "))
-    {
-      # Split the sentence into words
-      words <- unlist(strsplit(as.character(tuple$text), " "))
-      # For each word emit a tuple
-      for (word in words)
-      {
-        if (word!="")
-        {
-          Emit(Tuple(data.frame(word = word)),...)
-        }  
-      } 
-    }
-  }
-
-  # R word counting function:
-  CountWord <- function(tuple,...){
-    # Get the hashmap "word count"
-    words <- GetHash("wordcount")
-    if (tuple$word %in% words$word) {
-      # Increment the word count:
-      words[words$word == tuple$word,]$count <-words[words$word == tuple$word,]$count + 1
-    } else { 
-      # If the word does not exist
-      # Add the word with count 1
-      words <- rbind(words, data.frame(word = tuple$word, count = 1))
-    }
-    # Store the hashmap
-    SetHash("wordcount", words)
-  }
 
   # Run the stream:
   result <- RStorm(topology)
