@@ -43,40 +43,63 @@ NHLTerms <- c("NHL","rangers", "canadiens", "lightning", "capitals", "islanders"
               "sabres", "ducks", "blues", "predators", "blackhawks",
               "canucks", "wild", "jets", "flames", "kings",
               "stars", "avalanche", "sharks", "oilers", "coyotes")
+maxMLB<-function(a,b)
+{
+  max1 = 0
+  max2 = 0
+  MLB=NULL
+  for(i in 2:length(b))
+  {
+    max1 = 0
+    for(j in 1:dim(a)[1]) 
+    {
+      if(length(grep(b[i],a[j,]$word,ignore.case=TRUE))>0)
+      {
+          max1 = max1 + a[j,]$count
+      }
+    }
+    if(max2<max1)
+    {
+      max2 = max1
+      MLB = b[i]
+    }
+  }
+  return(MLB)
+}
 
 # R word counting function:
-  CountWord <- function(tuple,...){
-    # Get the hashmap "word count"
-    words <- GetHash("wordcount")
-    if (tuple$word %in% words$word) {
-      # Increment the word count:
-      words[words$word == tuple$word,]$count <-words[words$word == tuple$word,]$count + 1
-    } else { 
-      # If the word does not exist
-      # Add the word with count 1
-      words <- rbind(words, data.frame(word = tuple$word, count = 1))
-    }
-    # Store the hashmap
-    SetHash("wordcount", words)
+CountWord <- function(tuple,...){
+  # Get the hashmap "word count"
+  counts <- GetHash("wordcount")
+  if (tuple$word %in% counts$word) {
+    # Increment the word count:
+    counts[counts$word == tuple$word,]$count <-counts[counts$word == tuple$word,]$count + 1
+  } else { 
+    # If the word does not exist
+    # Add the word with count 1
+    counts <- rbind(counts, data.frame(word = tuple$word, count = 1,stringsAsFactors=F))
   }
- # and splits it into words:
-  SplitSentence <- function(tuple,...)
+  # Store the hashmap
+  SetHash("wordcount", counts)
+}
+# and splits it into words:
+SplitSentence <- function(tuple,...)
+{
+  if((tuple$text!="")||(tuple$text!=" "))
   {
-    if((tuple$text!="")||(tuple$text!=" "))
+    # Split the sentence into words
+    words <- unlist(strsplit(as.character(tuple$text), " "))
+    # For each word emit a tuple
+    for (word in words)
     {
-      # Split the sentence into words
-      words <- unlist(strsplit(as.character(tuple$text), " "))
-      # For each word emit a tuple
-      for (word in words)
+      if (word!="")
       {
-        if (word!="")
-        {
-          Emit(Tuple(data.frame(word = word)),...)
-        }  
-      } 
-    }
+        Emit(Tuple(data.frame(word = word,stringsAsFactors=F)),...)
+      }  
+    } 
   }
-  
+}
+
 countMin<-function(tweets.running){
   oneData<-as.data.frame(tweets.running$text)
   oneData[,1]<-as.data.frame(str_replace_all(oneData[,1],"[^[:graph:]]", " "))
@@ -85,18 +108,17 @@ countMin<-function(tweets.running){
     iconv(row, "latin1", "ASCII", sub="")
     iconv(row, "LATIN2", "ASCII", sub="")
   })
-
+  
   s <- Corpus(VectorSource(oneData[,1]),readerControl=list(language="en"))
   s <- tm_map(s, tolower)
   s <- tm_map(s, removeWords, c(stopwords("english"),"rt","http","retweet"))
   s <- tm_map(s, removePunctuation)
-  s <- tm_map(s, removeNumbers)
   s <- tm_map(s, PlainTextDocument)
   s <- tm_map(s, stripWhitespace)
   tweets<-data.frame(text=sapply(s, '[[', "content"), stringsAsFactors=FALSE)
-
+  
   #function to pre-process tweet text
-
+  
   topology = Topology(tweets)
   # Add the bolts:
   topology <- AddBolt(
@@ -105,15 +127,13 @@ countMin<-function(tweets.running){
   topology <- AddBolt(
     topology, Bolt(CountWord, listen = 1)
   )
-
+  
   # R function that receives a tuple
   # (a sentence in this case)
-
+  
   # Run the stream:
   result <- RStorm(topology)
   # Obtain results stored in "wordcount"
-  counts <- GetHash("wordcount", result)
-  return (counts)
 }
 #function to remove tweets having both the words love and hate
 filterTweetsMLB<-function(a)
@@ -150,7 +170,7 @@ filterTweetsMLB<-function(a)
        (length(grep(MLBTerms[29],a,ignore.case=TRUE))>0) |
        (length(grep(MLBTerms[30],a,ignore.case=TRUE))>0) |
        (length(grep(MLBTerms[31],a,ignore.case=TRUE))>0))
-  {
+{
     if(a$league != 0)
     {
       #another league was also mentioned, will remove tweet
@@ -162,7 +182,7 @@ filterTweetsMLB<-function(a)
       a$league = "MLB"
     }
   }
-  data.frame(a)
+data.frame(a)
 }
 
 
@@ -200,7 +220,7 @@ filterTweetsNBA<-function(a)
        (length(grep(NBATerms[28],a,ignore.case=TRUE))>0) | 
        (length(grep(NBATerms[29],a,ignore.case=TRUE))>0) | 
        (length(grep(NBATerms[30],a,ignore.case=TRUE))>0) )
-  {
+{
     if(a$league != 0)
     {
       #another league was also mentioned, will remove tweet
@@ -212,7 +232,7 @@ filterTweetsNBA<-function(a)
       a$league = "NBA"
     }
   }
-  data.frame(a)
+data.frame(a)
 }
 
 
@@ -253,7 +273,7 @@ filterTweetsNFL<-function(a)
        (length(grep(NFLTerms[31],a,ignore.case=TRUE))>0) | 
        (length(grep(NFLTerms[32],a,ignore.case=TRUE))>0) | 
        (length(grep(NFLTerms[33],a,ignore.case=TRUE))>0) )
-  {
+{
     if(a$league != 0)
     {
       #another league was also mentioned, will remove tweet
@@ -265,7 +285,7 @@ filterTweetsNFL<-function(a)
       a$league = "NFL"
     }
   }
-  data.frame(a)
+data.frame(a)
 }
 
 #function to remove tweets having both the words love and hate
@@ -303,7 +323,7 @@ filterTweetsNHL<-function(a)
        (length(grep(NHLTerms[29],a,ignore.case=TRUE))>0) |
        (length(grep(NHLTerms[30],a,ignore.case=TRUE))>0) |
        (length(grep(NHLTerms[31],a,ignore.case=TRUE))>0))
-  {
+{
     if(a$league != 0)
     {
       #another league was also mentioned, will remove tweet
@@ -315,49 +335,49 @@ filterTweetsNHL<-function(a)
       a$league = "NHL"
     }  
   }
-  data.frame(a)
+data.frame(a)
 }
 
 #Capture new tweets and 
 updateTweets<-function(a, firstTime){
-
-#stream tweets only in US locations
-filterStream("tweetsUS.json", locations = c(-125, 25, -66, 50), timeout = TWEET_DURATION, oauth = my_oauth)
   
-#parse tweets from .json file
-tweets.df <- parseTweets("tweetsUS.json", verbose = FALSE)
-
-#delete file once it is stored, to be written to again
-file.remove("tweetsUS.json")
-
-#copy parsed tweets, init league to 0
-tweets.filter <- tweets.df
-tweets.filter$league = 0
-
-# push tweets through all league filters
-tweets.filter<-ddply(tweets.filter,.(text),filterTweetsMLB)
-tweets.filter<-ddply(tweets.filter,.(text),filterTweetsNBA)
-tweets.filter<-ddply(tweets.filter,.(text),filterTweetsNFL)
-tweets.filter<-ddply(tweets.filter,.(text),filterTweetsNHL)
-
-#Only look at rows where one league was selected
-tweets.filter <- subset(tweets.filter, tweets.filter$league == "MLB" | 
-                          tweets.filter$league == "NBA" |
-                          tweets.filter$league == "NFL" |
-                          tweets.filter$league == "NHL")
-
-#if first time, cant bind yet
-if(firstTime)
-{
-  tweets.running <- tweets.filter
-}
-else
-{
-  #append new filtered tweets to old
-  tweets.running <- rbind(a, tweets.filter)
-}
-
-return (tweets.running)
+  #stream tweets only in US locations
+  filterStream("tweetsUS.json", locations = c(-125, 25, -66, 50), timeout = TWEET_DURATION, oauth = my_oauth)
+  
+  #parse tweets from .json file
+  tweets.df <- parseTweets("tweetsUS.json", verbose = FALSE)
+  
+  #delete file once it is stored, to be written to again
+  file.remove("tweetsUS.json")
+  
+  #copy parsed tweets, init league to 0
+  tweets.filter <- tweets.df
+  tweets.filter$league = 0
+  
+  # push tweets through all league filters
+  tweets.filter<-ddply(tweets.filter,.(text),filterTweetsMLB)
+  tweets.filter<-ddply(tweets.filter,.(text),filterTweetsNBA)
+  tweets.filter<-ddply(tweets.filter,.(text),filterTweetsNFL)
+  tweets.filter<-ddply(tweets.filter,.(text),filterTweetsNHL)
+  
+  #Only look at rows where one league was selected
+  tweets.filter <- subset(tweets.filter, tweets.filter$league == "MLB" | 
+                            tweets.filter$league == "NBA" |
+                            tweets.filter$league == "NFL" |
+                            tweets.filter$league == "NHL")
+  
+  #if first time, cant bind yet
+  if(firstTime)
+  {
+    tweets.running <- tweets.filter
+  }
+  else
+  {
+    #append new filtered tweets to old
+    tweets.running <- rbind(a, tweets.filter)
+  }
+  
+  return (tweets.running)
 }
 
 mapData <- function(a){
@@ -399,22 +419,24 @@ my_oauth$handshake(cainfo = system.file("CurlSSL", "cacert.pem", package = "RCur
 tweets.running <- data.frame(0)
 points <- data.frame(0)
 
+#Set hash count
+counts <- GetHash("wordcount")
 #Gather new tweets and update filter for first time
 tweets.running <- updateTweets(tweets.running, TRUE)
-counts<-countMin(tweets.running)
+countMin(tweets.running)
 
 #determine good length
 for (i in 1:ITERATIONS)
 {
-
+  
   #Gather new tweets and update filter
   tweets.running <- updateTweets(tweets.running, FALSE)
-  counts<-countMin(tweets.running)
+  countMin(tweets.running)
   
   #define points with only latitude, longitude, and league class
   #update global so it can be used in ggplot
   points <- data.frame(x = as.numeric(tweets.running$lon), y = as.numeric(tweets.running$lat), 
-                           league = tweets.running$league)
+                       league = tweets.running$league)
   
   #Define map and print it
   map <- mapData(points)
@@ -423,3 +445,21 @@ for (i in 1:ITERATIONS)
   #Print total counts
   printTotals()
 }
+#Prints the most successful franchises in one league
+MLB=NULL
+counts <- GetHash("wordcount", result)
+MLB = maxMLB(counts,MLBTerms)
+print("Most Tweeted Baseball Team:")
+print(MLB)
+
+MLB = maxMLB(counts,NBATerms)
+print("Most Tweeted Basketball Team:")
+print(MLB)
+
+MLB = maxMLB(counts,NHLTerms)
+print("Most Tweeted Hockey Team:")
+print(MLB)
+
+MLB = maxMLB(counts,NFLTerms)
+print("Most Tweeted Football Team:")
+print(MLB)
