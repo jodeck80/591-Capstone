@@ -55,7 +55,7 @@ maxMLB<-function(a,b)
     {
       if(length(grep(b[i],a[j,]$word,ignore.case=TRUE))>0)
       {
-          max1 = max1 + a[j,]$count
+        max1 = max1 + a[j,]$count
       }
     }
     if(max2<max1)
@@ -66,6 +66,23 @@ maxMLB<-function(a,b)
   }
   return(MLB)
 }
+
+maxMLBcount<-function(a,b)
+{
+  max1 = 0
+  for(i in 1:length(b))
+  {
+    for(j in 1:dim(a)[1]) 
+    {
+      if(length(grep(b[i],a[j,]$word,ignore.case=TRUE))>0)
+      {
+        max1 = max1 + a[j,]$count
+      }
+    }
+  }
+  return(max1)
+}
+
 
 # R word counting function:
 CountWord <- function(tuple,...){
@@ -447,19 +464,44 @@ for (i in 1:ITERATIONS)
 }
 #Prints the most successful franchises in one league
 MLB=NULL
+pop = NULL
+MLBcount = 0
 counts <- GetHash("wordcount", result)
 MLB = maxMLB(counts,MLBTerms)
+if(MLBcount<maxMLBcount(counts,MLBTerms))
+{
+  MLBcount = maxMLBcount(counts,MLBTerms)
+  pop = "MLB"
+}
 print("Most Tweeted Baseball Team:")
 print(MLB)
 
 MLB = maxMLB(counts,NBATerms)
+if(MLBcount<maxMLBcount(counts,NBATerms))
+{
+  MLBcount = maxMLBcount(counts,NBATerms)
+  pop = "NBA"
+}
 print("Most Tweeted Basketball Team:")
 print(MLB)
 
 MLB = maxMLB(counts,NHLTerms)
+if(MLBcount<maxMLBcount(counts,NHLTerms))
+{
+  MLBcount = maxMLBcount(counts,NHLTerms)
+  pop = "NHL"
+}
 print("Most Tweeted Hockey Team:")
 print(MLB)
 
 MLB = maxMLB(counts,NFLTerms)
+if(MLBcount<maxMLBcount(counts,NFLTerms))
+{
+  MLBcount = maxMLBcount(counts,NFLTerms)
+  pop = "NFL"
+}
 print("Most Tweeted Football Team:")
 print(MLB)
+
+print("Most Tweeted League:")
+print(pop)
