@@ -6,6 +6,7 @@ library(maps)
 library(RStorm)
 library(tm)
 library(stringr)
+library(ROAuth)
 load("my_oauth.Rdata")
 
 # Color blind friendly colors:
@@ -15,7 +16,7 @@ cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2"
 TWEET_DURATION <- 60
 
 #number of times to iterate process
-ITERATIONS <- 30
+ITERATIONS <- 3
 
 MLBTerms <- c("MLB","yankees", "red sox", "orioles", "rays", "blue jays",
               "mets", "braves", "marlins", "phillies", "nationals",
@@ -149,8 +150,10 @@ countMin<-function(tweets.running){
   # (a sentence in this case)
   
   # Run the stream:
-  result <- RStorm(topology)
+  resultLoc <- RStorm(topology)
   # Obtain results stored in "wordcount"
+  
+  return (resultLoc)
 }
 #function to remove tweets having both the words love and hate
 filterTweetsMLB<-function(a)
@@ -435,12 +438,13 @@ my_oauth$handshake(cainfo = system.file("CurlSSL", "cacert.pem", package = "RCur
 #define globally, used in many functions
 tweets.running <- data.frame(0)
 points <- data.frame(0)
+result <- data.frame(0)
 
 #Set hash count
 counts <- GetHash("wordcount")
 #Gather new tweets and update filter for first time
 tweets.running <- updateTweets(tweets.running, TRUE)
-countMin(tweets.running)
+result <- countMin(tweets.running)
 
 #determine good length
 for (i in 1:ITERATIONS)
@@ -448,7 +452,7 @@ for (i in 1:ITERATIONS)
   
   #Gather new tweets and update filter
   tweets.running <- updateTweets(tweets.running, FALSE)
-  countMin(tweets.running)
+  result <- countMin(tweets.running)
   
   #define points with only latitude, longitude, and league class
   #update global so it can be used in ggplot
